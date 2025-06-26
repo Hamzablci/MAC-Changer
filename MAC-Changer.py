@@ -3,14 +3,24 @@ import random
 import os
 
 def random_mac():
-    mac = [0x02,
-           random.randint(0x00, 0x7f),
-           random.randint(0x00, 0xff),
-           random.randint(0x00, 0xff),
-           random.randint(0x00, 0xff),
-           random.randint(0x00, 0xff)]
+    first_octet = random.randint(0x00, 0xff)
+    first_octet = (first_octet & 0b11111100) | 0b00000010  
+    mac = [first_octet] + [random.randint(0x00, 0xff) for _ in range(5)]
     return ":".join(f"{b:02x}" for b in mac)
 
+def get_interfaces():
+    interfaces = []
+    try:
+        output = subprocess.check_output(["ip", "-o", "link", "show"]).decode()
+        for line in output.splitlines():
+            parts = line.split(": ")
+            if len(parts) > 1:
+                name = parts[1].split()[0]
+                if name != "lo":  
+                    interfaces.append(name)
+    except Exception as e:
+        print(f"Error reading interfaces: {e}")
+    return interfaces
 
 if os.getuid() != 0:
     os.system("clear")
@@ -39,20 +49,26 @@ while True:
         os.system("clear")
         print("---------------------------------")
         print("---> Manual MAC Changer <---")
-        print("1: eth0 ")
-        print("2: wlan0 ")
-        print("3: Menu ")
         print("---------------------------------")
-        interface = input("Enter Network Interface : ")
 
-        if interface == "1":
-            interface = "eth0"
-        elif interface == "2":
-            interface = "wlan0"
-        elif interface == "3":
-            continue  
-        else:
-            print("Incorrect Entry Detected!")
+        interfaces = get_interfaces()
+        if not interfaces:
+            print("No interfaces found!")
+            input("Press ENTER to return to menu...")
+            continue
+
+        print("Available Network Interfaces:")
+        for i, iface in enumerate(interfaces):
+            print(f"{i + 1}: {iface}")
+        print(f"{len(interfaces) + 1}: Menu")
+
+        try:
+            choice = int(input("Select Interface: "))
+            if choice == len(interfaces) + 1:
+                continue
+            interface = interfaces[choice - 1]
+        except (ValueError, IndexError):
+            print("Invalid selection!")
             input("Press ENTER to return to menu...")
             continue
 
@@ -60,34 +76,41 @@ while True:
         subprocess.call(["ip", "link", "set", interface, "down"])
         subprocess.call(["ip", "link", "set", interface, "address", mac_address])
         subprocess.call(["ip", "link", "set", interface, "up"])
-        print("MAC address for " + interface + " has been changed to " + mac_address + ".")
+        print(f"MAC address for {interface} has been changed to {mac_address}.")
         input("Press ENTER to return to menu...")
 
     elif arayuz == 2:
         os.system("clear")
         print("---------------------------------")
         print("---> Random MAC Changer <---")
-        print("1: eth0 ")
-        print("2: wlan0 ")
-        print("3: Menu ")
         print("---------------------------------")
-        interface = input("Enter Network Interface: ")
-        if interface == "1":
-            interface = "eth0"
-        elif interface == "2":
-            interface = "wlan0"
-        elif interface == "3":
-            continue
-        else:
-            print("Incorrect Entry Detected!")
+
+        interfaces = get_interfaces()
+        if not interfaces:
+            print("No interfaces found!")
             input("Press ENTER to return to menu...")
             continue
-        
+
+        print("Available Network Interfaces:")
+        for i, iface in enumerate(interfaces):
+            print(f"{i + 1}: {iface}")
+        print(f"{len(interfaces) + 1}: Menu")
+
+        try:
+            choice = int(input("Select Interface: "))
+            if choice == len(interfaces) + 1:
+                continue
+            interface = interfaces[choice - 1]
+        except (ValueError, IndexError):
+            print("Invalid selection!")
+            input("Press ENTER to return to menu...")
+            continue
+
         mac_address = random_mac()
         subprocess.call(["ip", "link", "set", interface, "down"])
         subprocess.call(["ip", "link", "set", interface, "address", mac_address])
         subprocess.call(["ip", "link", "set", interface, "up"])
-        print("Random MAC address for " + interface + " has been changed to " + mac_address + ".")
+        print(f"Random MAC address for {interface} has been changed to {mac_address}.")
         input("Press ENTER to return to menu...")
 
     elif arayuz == 3:
